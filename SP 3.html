@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplikasi Penilaian Kelas Harian</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons for clean UI -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Custom Scrollbar for smooth scrolling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-900 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <!-- School Logo with fallback -->
+        <div class="relative w-11 h-11 bg-white rounded-full flex items-center justify-center shadow overflow-hidden border-2 border-slate-700">
+          <img id="school-logo" src="" 
+               alt="Logo Sekolah" class="w-full h-full object-cover"
+               onerror="this.src='https://placehold.co/100x100/34d399/ffffff?text=LOGO'">
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight leading-none">Aplikasi Penilaian</h1>
+          <p class="text-xs text-slate-400 mt-1">Sistem Rekap Harian Guru</p>
+        </div>
+      </div>
+      <!-- Minimalist Icon-only Add Student Button -->
+      <button onclick="toggleAddStudentModal()" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 rounded-full transition border border-slate-700 flex items-center justify-center shadow-inner" title="Tambah Siswa Baru">
+        <i data-lucide="user-plus" class="w-5 h-5"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER (Centered & constrained like native mobile app) -->
+  <main class="flex-1 max-w-md w-full mx-auto px-4 py-4 space-y-4 pb-32">
+    
+    <!-- METADATA PANEL (Tanggal, Kelas, Judul Tugas) -->
+    <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <!-- Date Selector -->
+        <div>
+          <label class="block text-xs font-bold text-blue-950 mb-1">Tanggal Kegiatan</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <i data-lucide="calendar" class="w-4 h-4"></i>
+            </span>
+            <input type="date" id="assessment-date" class="w-full pl-9 pr-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <!-- Class Selector -->
+        <div>
+          <label class="block text-xs font-bold text-blue-950 mb-1">Pilih Kelas</label>
+          <div class="relative flex">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <i data-lucide="users" class="w-4 h-4"></i>
+            </span>
+            <select id="class-select" onchange="loadStudentsOfClass()" class="w-full pl-9 pr-2 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 appearance-none">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Assessment Title -->
+      <div>
+        <label class="block text-xs font-bold text-blue-950 mb-1">Materi / Judul Penilaian</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+            <i data-lucide="award" class="w-4 h-4"></i>
+          </span>
+          <input type="text" id="assessment-title" placeholder="Contoh: Kuis Matematika Aljabar, Keaktifan Diskusi" 
+                 class="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium font-semibold">
+        </div>
+      </div>
+    </section>
+
+    <!-- STATISTICS & QUICK ACTIONS (SUPER COMPACT REVISION) -->
+    <section class="bg-slate-900 text-white rounded-2xl py-2.5 px-3.5 shadow-md space-y-2.5 relative overflow-hidden">
+      <!-- Background pattern -->
+      <div class="absolute right-0 bottom-0 opacity-10 pointer-events-none">
+        <i data-lucide="trending-up" class="w-24 h-24 text-white"></i>
+      </div>
+
+      <!-- Quick Action: Set Manual Custom Score (Sleek & Space-Efficient) -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Aksi Cepat</span>
+        <div class="flex items-center space-x-1.5">
+          <input type="number" id="quick-score-input" value="75" min="0" max="100" class="w-12 text-center bg-slate-800 text-white rounded-lg text-xs py-1 px-1 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-extrabold" title="Masukkan nilai target">
+          <button onclick="setAllScoresToCustom()" class="flex items-center space-x-1 bg-amber-500 hover:bg-amber-600 text-slate-950 px-2 py-1 rounded-lg text-[11px] font-extrabold shadow-xs transition active:scale-95">
+            <i data-lucide="zap" class="w-3 h-3 fill-current"></i>
+            <span>Set Semua</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Real-time Summary Card Stats (Sleek and tight design) -->
+      <div class="grid grid-cols-4 gap-1.5 text-center">
+        <div class="bg-white/5 rounded-xl py-1 px-1.5 border border-white/5">
+          <div class="text-[9px] text-slate-400 uppercase font-medium">Rata2</div>
+          <div id="stat-avg" class="text-sm font-extrabold text-emerald-400">0</div>
+        </div>
+        <div class="bg-white/5 rounded-xl py-1 px-1.5 border border-white/5">
+          <div class="text-[9px] text-slate-400 uppercase font-medium">Tinggi</div>
+          <div id="stat-max" class="text-sm font-extrabold text-sky-400">0</div>
+        </div>
+        <div class="bg-white/5 rounded-xl py-1 px-1.5 border border-white/5">
+          <div class="text-[9px] text-slate-400 uppercase font-medium">Rendah</div>
+          <div id="stat-min" class="text-sm font-extrabold text-rose-400">0</div>
+        </div>
+        <div class="bg-white/5 rounded-xl py-1 px-1.5 border border-white/5">
+          <div class="text-[9px] text-slate-400 uppercase font-medium">Tuntas</div>
+          <div id="stat-pass" class="text-sm font-extrabold text-amber-400">0%</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDENT LIST -->
+    <section id="student-list-container" class="space-y-3">
+      <!-- Generated Dynamically via JavaScript -->
+    </section>
+
+    <!-- EMPTY STATE -->
+    <div id="empty-state" class="hidden flex-col items-center justify-center py-10 text-center space-y-2">
+      <div class="bg-slate-100 p-4 rounded-full text-slate-400">
+        <i data-lucide="user-x" class="w-12 h-12"></i>
+      </div>
+      <h3 class="font-semibold text-slate-600">Belum ada siswa</h3>
+      <p class="text-xs text-slate-400 max-w-xs">Silakan tambahkan data kelas dan siswa Anda terlebih dahulu menggunakan tombol Tambah Siswa.</p>
+    </div>
+
+  </main>
+
+  <!-- BOTTOM FLOATING ACTION BAR -->
+  <footer class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-100 py-3 shadow-lg z-30">
+    <div class="max-w-md mx-auto px-4 grid grid-cols-2 gap-3">
+      <!-- Send to WhatsApp -->
+      <button onclick="sendToWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-2xl shadow-md shadow-emerald-200 flex items-center justify-center space-x-2 transition active:scale-95">
+        <i class="w-5 h-5 fill-current"><svg viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.97-1.861-1.868-4.335-2.897-6.97-2.897-5.437 0-9.863 4.373-9.867 9.801-.001 1.77.475 3.5 1.378 5.008L1.948 22.1l4.7-.146z"/></svg></i>
+        <span>Kirim Ke WA</span>
+      </button>
+
+      <!-- Send to Google Sheets -->
+      <button onclick="sendToSpreadsheet()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-2xl shadow-md shadow-indigo-200 flex items-center justify-center space-x-2 transition active:scale-95">
+        <i data-lucide="cloud-lightning" class="w-5 h-5"></i>
+        <span>Kirim Sheets</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- MODAL: ADD/EDIT STUDENT -->
+  <div id="student-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden transition-opacity duration-300">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl relative space-y-4">
+      <button onclick="toggleAddStudentModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+      
+      <div class="flex items-center space-x-2">
+        <i data-lucide="user-plus" class="text-emerald-500 w-6 h-6"></i>
+        <h3 class="text-lg font-bold text-slate-800">Siswa & Kelas Baru</h3>
+      </div>
+
+      <div class="space-y-3">
+        <!-- Name Input -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Nama Lengkap</label>
+          <input type="text" id="new-student-name" placeholder="Masukkan nama siswa" 
+                 class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <!-- Class Input (Text or Select) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Kelas</label>
+          <input type="text" id="new-student-class" placeholder="Contoh: X TESHA, XI TITL" 
+                 class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <p class="text-[10px] text-slate-400 mt-1">Jika menulis nama kelas baru, otomatis akan masuk ke opsi pilihan di halaman utama.</p>
+        </div>
+
+        <!-- Photo URL Input (Google Drive / Unsplash / etc) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Link Foto (Mendukung Tautan Google Drive)</label>
+          <input type="text" id="new-student-photo" placeholder="https://drive.google.com/file/d/..." 
+                 class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+      </div>
+
+      <div class="flex space-x-3 pt-2">
+        <button onclick="toggleAddStudentModal()" class="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-sm font-semibold transition">Batal</button>
+        <button onclick="saveNewStudent()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow transition">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: INFO & GOOGLE SHEETS SETUP (CLEANED UP - NO INPUT FIELDS) -->
+  <div id="config-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden transition-opacity duration-300">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
+      <button onclick="toggleConfigModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+
+      <div class="flex items-center space-x-2">
+        <i data-lucide="help-circle" class="text-indigo-500 w-6 h-6"></i>
+        <h3 class="text-lg font-bold text-slate-800">Panduan & Status</h3>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-600">
+        <!-- Status Indicator -->
+        <div class="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-1.5">
+          <span class="font-bold text-slate-700 block">Status Konfigurasi Internal:</span>
+          <div class="flex items-center justify-between text-[11px]">
+            <span>Logo Sekolah:</span>
+            <span id="status-logo" class="font-bold"></span>
+          </div>
+          <div class="flex items-center justify-between text-[11px]">
+            <span>Webhook Sheets:</span>
+            <span id="status-webhook" class="font-bold"></span>
+          </div>
+        </div>
+        
+        <!-- Instructions box -->
+        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 space-y-2 text-slate-700">
+          <span class="font-bold text-indigo-800 flex items-center space-x-1">
+            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+            <span>Cara Menghubungkan ke Spreadsheet:</span>
+          </span>
+          <p class="text-[11px] leading-relaxed text-slate-600">
+            Setiap kelas otomatis dibuatkan Sheet terpisah. Rekap baru akan bergeser <strong>ke kanan (kolom baru)</strong> agar rapi dan tidak menumpuk!
+          </p>
+          <ol class="list-decimal list-inside space-y-1 pl-1 leading-relaxed">
+            <li>Buat Google Spreadsheet baru.</li>
+            <li>Buka menu <strong>Ekstensi > Apps Script</strong>.</li>
+            <li>Hapus semua kode bawaan, lalu salin-tempel kode Apps Script di bawah ini.</li>
+            <li>Klik <strong>Terapkan (Deploy) > Penerapan Baru</strong>.</li>
+            <li>Pilih tipe <strong>Aplikasi Web</strong>, setel akses ke "Siapa saja (Anyone)".</li>
+            <li>Salin URL Aplikasi Web yang dihasilkan dan tempel ke baris variabel <code class="bg-indigo-100 text-indigo-800 px-1 py-0.5 rounded text-[10px]">CONFIG_WEBHOOK_URL</code> di dalam kode HTML aplikasi ini.</li>
+          </ol>
+          <div class="mt-2">
+            <button onclick="copyAppsScriptCode()" class="w-full bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold py-1.5 px-2 rounded-lg flex items-center justify-center space-x-1 transition active:scale-95">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span id="copy-btn-text">Salin Kode Apps Script</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button onclick="resetToDefaultData()" class="w-full py-2.5 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-1">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          <span>Reset Semua Data Siswa</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PHOTO PREVIEW (LIGHTBOX) -->
+  <div id="photo-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden transition-opacity duration-300" onclick="closePhotoModal()">
+    <div class="relative max-w-sm w-full bg-white rounded-3xl overflow-hidden shadow-2xl p-4 flex flex-col items-center" onclick="event.stopPropagation()">
+      <!-- Close Button -->
+      <button onclick="closePhotoModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 bg-slate-100 rounded-full transition-all hover:scale-105">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+      <!-- Photo Container -->
+      <div class="w-72 h-72 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 mt-6 shadow-inner">
+        <img id="modal-student-photo" src="" alt="Foto Siswa" class="w-full h-full object-cover">
+      </div>
+      <!-- Student Information -->
+      <h3 id="modal-student-name" class="text-base font-extrabold text-slate-800 mt-4 text-center">Nama Siswa</h3>
+      <p id="modal-student-class" class="text-xs text-indigo-600 font-semibold mt-1 mb-2 bg-indigo-50 px-3 py-1 rounded-full">Kelas Siswa</p>
+      
+      <!-- New Capture Trigger Button -->
+      <button id="modal-capture-btn" class="w-full mt-2 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow flex items-center justify-center space-x-2 transition active:scale-95">
+        <i data-lucide="camera" class="w-4 h-4"></i>
+        <span>Ambil Foto Baru (Kamera)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- NEW MODAL: LIVE CAMERA CAPTURE -->
+  <div id="camera-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden transition-opacity duration-300">
+    <div class="relative max-w-sm w-full bg-slate-900 rounded-3xl overflow-hidden shadow-2xl p-5 flex flex-col items-center text-white space-y-4">
+      
+      <div class="flex items-center justify-between w-full border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-2 text-emerald-400">
+          <i data-lucide="camera" class="w-5 h-5"></i>
+          <span class="text-sm font-bold">Kamera Penilaian</span>
+        </div>
+        <button onclick="closeCamera()" class="p-1 hover:bg-slate-800 rounded-full text-slate-400 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Live Viewport / Snap Canvas -->
+      <div class="relative w-72 h-72 rounded-2xl overflow-hidden bg-black shadow-inner border border-slate-800 flex items-center justify-center">
+        <!-- Live Video Element -->
+        <video id="camera-stream" autoplay playsinline class="w-full h-full object-cover transform scale-x-[-1]"></video>
+        <!-- Frozen Snap Preview -->
+        <img id="camera-preview" src="" alt="Snapshot" class="absolute inset-0 w-full h-full object-cover hidden">
+        <!-- Hidden Capture Canvas -->
+        <canvas id="camera-canvas" width="480" height="480" class="hidden"></canvas>
+        
+        <!-- Loading Spinner overlay for upload process -->
+        <div id="camera-upload-loading" class="absolute inset-0 bg-slate-950/80 hidden flex-col items-center justify-center space-y-3 z-20">
+          <div class="w-10 h-10 border-4 border-t-emerald-500 border-slate-800 rounded-full animate-spin"></div>
+          <p class="text-xs font-bold text-emerald-400 tracking-wide animate-pulse">Mengunggah ke Drive...</p>
+        </div>
+      </div>
+
+      <!-- Control Buttons -->
+      <div class="w-full space-y-2">
+        <!-- Live Stream State Buttons -->
+        <div id="camera-stream-controls" class="flex space-x-2">
+          <button onclick="switchCameraFacing()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Beralih Kamera</span>
+          </button>
+          <button onclick="captureSnapshot()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-md shadow-emerald-900/50">
+            <i data-lucide="aperture" class="w-3.5 h-3.5"></i>
+            <span>Jepret</span>
+          </button>
+        </div>
+
+        <!-- Snap Preview State Buttons -->
+        <div id="camera-preview-controls" class="flex space-x-2 hidden">
+          <button onclick="retakeSnapshot()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Ulangi</span>
+          </button>
+          <button onclick="uploadCapturedPhoto()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition shadow-md shadow-indigo-950/50">
+            <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
+            <span>Simpan ke Drive</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CUSTOM ALERT/NOTIFICATION TOAST (Replaces Native Alert) -->
+  <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl z-50 flex items-center space-x-2 transition-all duration-300 opacity-0 pointer-events-none scale-90">
+    <div id="toast-icon-container" class="p-1 rounded-lg bg-emerald-500 text-slate-950">
+      <i data-lucide="check" class="w-4 h-4" id="toast-icon"></i>
+    </div>
+    <span id="toast-message" class="text-xs font-semibold tracking-wide">Pemberitahuan berhasil!</span>
+  </div>
+
+  <!-- JAVASCRIPT PROGRAM LOGIC -->
+  <script>
+    // =========================================================================
+    //  PENGATURAN UTAMA GURU (Silakan ganti tautan di bawah ini sesuai kebutuhan)
+    // =========================================================================
+    
+    // 1. Tautan Logo Sekolah (Bisa langsung pakai Link Google Drive atau URL Gambar web)
+    const CONFIG_SCHOOL_LOGO_URL = "https://drive.google.com/file/d/1UYTf4CkaT4c-VWmoP31iNOGGTccgQorJ/view?usp=sharing"; 
+    
+    // 2. URL Webhook Google Apps Script Anda (Hasil Deploy/Penerapan di Spreadsheet)
+    const CONFIG_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxqqxoexIpn6oVGynlPBtSNZsAZ1Wg6aH2RpB2LxKSPkUiIJdqSJV9DZWDd_K5I-7q1/exec"; 
+    
+    // =========================================================================
+
+    // --- SAMPLE/DEFAULT INITIAL STATE ---
+    const defaultClasses = [
+      "X TESHA",
+      "X TK 1",
+      "X TK 2",
+      "XI TITL",
+      "XI TJTL",
+      "XI TPTUP",
+      "XII TITL",
+      "XII TJTL",
+      "XII TPTUP"
+    ];
+    const defaultStudents = [
+      // Kelas XII TJTL (21 Siswa)
+      { id: "s1", name: "Adrian Trisno", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s2", name: "Agus Gunawan Syahban", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s3", name: "Ahmad Akbar", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s4", name: "Andika Pratama", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s5", name: "Anjas Fadel Andika", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s6", name: "Arya Saputra", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s7", name: "Baiq Sepa Putri Aprilia", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s8", name: "Dika Sibnu Sejarah", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s9", name: "Darumdia", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s10", name: "Fhaqihun Alif", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s11", name: "Gina Asri", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s12", name: "I Putu Diva Yudistira P.", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s13", name: "Irfan Humaidi", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s14", name: "Martin", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s15", name: "Muhammad Irhamdi", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s16", name: "M. Kholid Saputra", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s17", name: "Reni Alfiana", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s18", name: "Ruhasa", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s19", name: "Ruslan", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s20", name: "Sari Ayu", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s21", name: "Suel Ahmad Zaki", class: "XII TJTL", photo: "", score: 75, attendance: "Hadir", note: "" },
+
+      // Kelas XII TPTUP (19 Siswa)
+      { id: "s22", name: "Adam Adrian", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s23", name: "Ahmad Madani", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s24", name: "Ahmad Muzakkir", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s25", name: "Arif Ilham", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s26", name: "Azfar Zaid Habibulloh", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s27", name: "Azwan", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s28", name: "Gigih Ramadhan Junaidi", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s29", name: "Habib Darul Falah", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s30", name: "Hilman Maulana", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s31", name: "Indra Aprianto", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s32", name: "Jaenul Anwar", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s33", name: "Juma'ah", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s34", name: "Muhammad Arjun", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s35", name: "Muhamad Imron Rohadi", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s36", name: "Muhammad Ariya Ramadan", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s37", name: "Muhammad Ega Indrawan", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s38", name: "M. Ikbal Wahyudi", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s39", name: "Sahdi", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s40", name: "Sahlur Ridho", class: "XII TPTUP", photo: "", score: 75, attendance: "Hadir", note: "" },
+
+      // Kelas XII TITL (22 Siswa)
+      { id: "s41", name: "Abdul Mukti", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s42", name: "Ahmad Suherman", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s43", name: "Alwani Laika", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s44", name: "Anisa", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s45", name: "Baki Nasuha", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s46", name: "Baiq Widya Luna Kusuma Dewi", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s47", name: "Bayu Saputra", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s48", name: "Duny Ardika Pratama", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s49", name: "Fathurrahman", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s50", name: "Lalu Muhammad Aliakbar", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s51", name: "Multazam", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s52", name: "Malik Abdul Aziz", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s53", name: "Muhajirin", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s54", name: "Muhamad Haekal", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s55", name: "Nurahim", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s56", name: "Selpi Karinsa", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s57", name: "Siti Aisyah", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s58", name: "Wisnu Ariyanto", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s59", name: "Zahrul", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s60", name: "Yadi Saputra", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s61", name: "Zidan Desta Harianto", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" },
+      { id: "s62", name: "Zul Firman", class: "XII TITL", photo: "", score: 75, attendance: "Hadir", note: "" }
+    ];
+
+    // --- APPLICATION VARIABLES ---
+    let appData = {
+      students: [],
+      classes: []
+    };
+
+    let selectedClass = "";
+    let activeStudentsList = []; // filtered/processed list
+    let cameraStream = null;
+    let activeFacingMode = "user"; // 'user' (front) or 'environment' (back)
+    let currentPhotoTargetStudentId = null;
+
+    // --- REKAP GOOGLE APPS SCRIPT CODE (UPGRADED FOR PHOTOS & HORIZONTAL REKAP) ---
+    const rawAppsScript = `function doPost(e) {
+  try {
+    var params = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // --- AKSI 1: UNGHAH FOTO LANGSUNG KE GOOGLE DRIVE ---
+    if (params.action === "uploadPhoto") {
+      var base64Data = params.base64Data;
+      var studentName = params.studentName || "Siswa";
+      var studentId = params.studentId || "unknown";
+      
+      // Decode image bytes
+      var contentType = base64Data.substring(5, base64Data.indexOf(';'));
+      var bytes = Utilities.base64Decode(base64Data.split(',')[1]);
+      var blob = Utilities.newBlob(bytes, contentType, studentName.replace(/\\s+/g, "_") + "_" + studentId + ".jpg");
+      
+      // Get or Create Folder
+      var folderName = "Foto Siswa Penilaian";
+      var folders = DriveApp.getFoldersByName(folderName);
+      var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+      
+      // Save file and set public visibility
+      var file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      
+      var directUrl = "https://lh3.googleusercontent.com/d/" + file.getId();
+      
+      return ContentService.createTextOutput(JSON.stringify({ 
+        "status": "success", 
+        "message": "Foto berhasil diunggah ke Google Drive!",
+        "photoUrl": directUrl
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // --- AKSI 2: REKAP NILAI HARIAN KE SPREADSHEET (KE SAMPING) ---
+    var className = params.class || "Umum";
+    var sheet = ss.getSheetByName(className);
+    if (!sheet) {
+      sheet = ss.insertSheet(className);
+      sheet.appendRow(["No", "Nama Siswa"]);
+      sheet.getRange("A1:B1").setFontWeight("bold").setBackground("#e2e8f0").setHorizontalAlignment("center");
+      sheet.setFrozenColumns(2);
+    }
+    
+    var dateVal = params.date || new Date().toISOString().split('T')[0];
+    var titleVal = params.title || "Penilaian";
+    var headerText = dateVal + " - " + titleVal;
+    
+    var dataSiswa = params.records || [];
+    
+    // Get existing students row index mapping
+    var lastRow = sheet.getLastRow();
+    var existingStudents = [];
+    if (lastRow > 1) {
+      existingStudents = sheet.getRange(2, 2, lastRow - 1, 1).getValues().map(function(row) {
+        return row[0].toString().trim().toLowerCase();
+      });
+    }
+    
+    // Check and append missing students
+    var updatedLastRow = lastRow;
+    for (var i = 0; i < dataSiswa.length; i++) {
+      var sName = dataSiswa[i].name.trim();
+      var sNameLower = sName.toLowerCase();
+      var sIndex = existingStudents.indexOf(sNameLower);
+      
+      if (sIndex === -1) {
+        updatedLastRow++;
+        sheet.appendRow([updatedLastRow - 1, sName]);
+        existingStudents.push(sNameLower);
+      }
+    }
+    
+    // Reload mapped student rows
+    lastRow = sheet.getLastRow();
+    var studentNamesInSheet = sheet.getRange(2, 2, lastRow - 1, 1).getValues().map(function(row) {
+      return row[0].toString().trim().toLowerCase();
+    });
+    
+    // Find or create column
+    var lastCol = sheet.getLastColumn();
+    var targetCol = lastCol + 1;
+    var headers = [];
+    if (lastCol > 2) {
+      headers = sheet.getRange(1, 3, 1, lastCol - 2).getValues()[0];
+    }
+    
+    var headerIndex = headers.indexOf(headerText);
+    if (headerIndex !== -1) {
+      targetCol = headerIndex + 3;
+    } else {
+      sheet.getRange(1, targetCol).setValue(headerText)
+                .setFontWeight("bold")
+                .setBackground("#d1fae5")
+                .setHorizontalAlignment("center");
+    }
+    
+    // Write scores and notes as cells notes
+    for (var j = 0; j < dataSiswa.length; j++) {
+      var sObj = dataSiswa[j];
+      var sNameLower = sObj.name.trim().toLowerCase();
+      var rowIndexInSheet = studentNamesInSheet.indexOf(sNameLower) + 2;
+      
+      if (rowIndexInSheet > 1) {
+        var cell = sheet.getRange(rowIndexInSheet, targetCol);
+        if (sObj.attendance === "Hadir") {
+          cell.setValue(sObj.score);
+        } else {
+          cell.setValue(sObj.attendance);
+        }
+        
+        if (sObj.note && sObj.note.trim() !== "") {
+          cell.setNote("Catatan: " + sObj.note);
+        } else {
+          cell.clearNote();
+        }
+      }
+    }
+    
+    sheet.autoResizeColumn(targetCol);
+    sheet.autoResizeColumn(1);
+    sheet.autoResizeColumn(2);
+    
+    return ContentService.createTextOutput(JSON.stringify({ "status": "success", "message": "Berhasil direkap ke samping!" }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ "status": "error", "message": error.toString() }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+    // --- AUTO CONVERT GOOGLE DRIVE SHARE LINK TO DIRECT IMAGE URL ---
+    function convertGDriveLink(url) {
+      if (!url) return "";
+      const driveUrl = url.trim();
+      if (driveUrl.includes("drive.google.com")) {
+        // Match /file/d/FILE_ID/
+        let match = driveUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+          return `https://lh3.googleusercontent.com/d/${match[1]}`;
+        }
+        // Match ?id=FILE_ID or &id=FILE_ID
+        match = driveUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+          return `https://lh3.googleusercontent.com/d/${match[1]}`;
+        }
+      }
+      return driveUrl; 
+    }
+
+    // --- HELPER FUNCTIONS ---
+    function getInitials(name) {
+      return name ? name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() : "S";
+    }
+
+    // --- INITIALIZATION EVENTS ---
+    window.addEventListener("DOMContentLoaded", () => {
+      loadDataFromStorage();
+
+      // Set default Date to today
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('assessment-date').value = today;
+
+      populateClassDropdown();
+      lucide.createIcons();
+      updateClassStats();
+
+      // Register Camera button trigger inside the Lightbox modal
+      document.getElementById("modal-capture-btn").addEventListener("click", () => {
+        if (currentPhotoTargetStudentId) {
+          closePhotoModal();
+          openCameraCapture(currentPhotoTargetStudentId);
+        }
+      });
+    });
+
+    function loadDataFromStorage() {
+      const stored = localStorage.getItem("penilaian_kelas_data");
+      if (stored) {
+        try {
+          appData = JSON.parse(stored);
+        } catch (e) {
+          useDefaultData();
+        }
+      } else {
+        useDefaultData();
+      }
+
+      const processedLogo = convertGDriveLink(CONFIG_SCHOOL_LOGO_URL);
+      document.getElementById("school-logo").src = processedLogo || "https://images.unsplash.com/photo-1592280771190-3e2e4d571952?w=100&auto=format&fit=crop";
+      
+      document.getElementById("status-logo").innerText = CONFIG_SCHOOL_LOGO_URL ? "Terpasang (Kode)" : "Logo Default (Unsplash)";
+      document.getElementById("status-logo").className = CONFIG_SCHOOL_LOGO_URL ? "font-bold text-emerald-600" : "font-bold text-amber-500";
+      
+      document.getElementById("status-webhook").innerText = CONFIG_WEBHOOK_URL ? "Aktif & Terhubung" : "Belum Dikonfigurasi";
+      document.getElementById("status-webhook").className = CONFIG_WEBHOOK_URL ? "font-bold text-emerald-600" : "font-bold text-rose-500";
+    }
+
+    function saveDataToStorage() {
+      localStorage.setItem("penilaian_kelas_data", JSON.stringify(appData));
+    }
+
+    function useDefaultData() {
+      appData.students = [...defaultStudents];
+      appData.classes = [...defaultClasses];
+      saveDataToStorage();
+    }
+
+    function resetToDefaultData() {
+      if (confirm("Apakah Anda yakin ingin menyetel ulang data siswa? Semua modifikasi daftar siswa dan nilai harian saat ini akan dikembalikan ke data sampel bawaan.")) {
+        useDefaultData();
+        loadDataFromStorage();
+        populateClassDropdown();
+        toggleConfigModal();
+        showToast("Data siswa berhasil disetel ulang!", "refresh-cw", "bg-indigo-500");
+      }
+    }
+
+    function populateClassDropdown() {
+      const select = document.getElementById("class-select");
+      select.innerHTML = "";
+      
+      const uniqueClasses = [...new Set(appData.students.map(s => s.class)), ...appData.classes];
+      appData.classes = uniqueClasses.filter(Boolean);
+
+      appData.classes.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.text = c;
+        select.appendChild(opt);
+      });
+
+      if (appData.classes.length > 0) {
+        selectedClass = appData.classes[0];
+        select.value = selectedClass;
+      }
+      loadStudentsOfClass();
+    }
+
+    // --- STUDENT RENDERING AND CONTROL ---
+    function loadStudentsOfClass() {
+      const select = document.getElementById("class-select");
+      selectedClass = select.value;
+      
+      activeStudentsList = appData.students.filter(student => student.class === selectedClass);
+      activeStudentsList.sort((a, b) => a.name.localeCompare(b.name));
+      
+      renderStudentList();
+      updateClassStats();
+    }
+
+    function renderStudentList(filteredList = null) {
+      const list = filteredList || activeStudentsList;
+      const container = document.getElementById("student-list-container");
+      const emptyState = document.getElementById("empty-state");
+      
+      container.innerHTML = "";
+
+      if (list.length === 0) {
+        emptyState.classList.remove("hidden");
+        return;
+      } else {
+        emptyState.classList.add("hidden");
+      }
+
+      list.forEach((student, index) => {
+        const ordinalNum = index + 1;
+
+        let scoreColor = "bg-rose-100 text-rose-700";
+        if (student.score >= 75) {
+          scoreColor = "bg-emerald-100 text-emerald-700";
+        } else if (student.score >= 70) {
+          scoreColor = "bg-amber-100 text-amber-700";
+        }
+
+        const isAbsent = student.attendance !== "Hadir";
+        const processedPhotoUrl = convertGDriveLink(student.photo);
+        const fallbackPhotoUrl = 'https://placehold.co/100x100/e2e8f0/64748b?text=' + getInitials(student.name);
+        const actualPhotoUrl = processedPhotoUrl || fallbackPhotoUrl;
+
+        const card = document.createElement("div");
+        card.className = `bg-white rounded-3xl p-4 shadow-md shadow-slate-200/90 border ${isAbsent ? 'border-amber-300/60 bg-amber-50/30' : 'border-emerald-100/80 hover:border-emerald-300'} transition-all duration-200 hover:shadow-lg hover:shadow-slate-300/80`;
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center space-x-3">
+              <span class="text-xs font-extrabold text-white bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 w-6 h-6 rounded-full flex items-center justify-center shadow-sm shadow-emerald-200">${ordinalNum}</span>
+              
+              <!-- Clickable Student Avatar with Hover Visual Indicators -->
+              <div onclick="openPhotoModal('${actualPhotoUrl}', '${student.name.replace(/'/g, "\\'")}', '${student.class}', '${student.id}')" 
+                   class="relative w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all" 
+                   title="Klik untuk memperbesar atau mengganti foto">
+                <img src="${actualPhotoUrl}" 
+                     alt="${student.name}" class="w-full h-full object-cover"
+                     onerror="this.src='https://placehold.co/100x100/cbd5e1/475569?text=${getInitials(student.name)}'">
+              </div>
+
+              <div>
+                <h4 class="text-sm font-bold text-slate-800 leading-snug break-all max-w-[180px]">${student.name}</h4>
+                <div class="flex items-center space-x-2 mt-0.5">
+                  ${isAbsent ? `<span class="text-[9px] font-bold px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded-sm uppercase tracking-wider">${student.attendance}</span>` : ''}
+                </div>
+              </div>
+            </div>
+
+            <div class="text-right">
+              <span id="score-badge-${student.id}" class="inline-block text-sm font-extrabold px-3 py-1.5 rounded-xl ${scoreColor} transition-colors min-w-[3rem] text-center">
+                ${student.score}
+              </span>
+            </div>
+          </div>
+
+          <div class="space-y-3 pt-1 border-t border-slate-50">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-400">Kehadiran</span>
+              <div class="flex space-x-1 bg-slate-100 p-0.5 rounded-lg text-xs">
+                ${['Hadir', 'Sakit', 'Izin', 'Alfa'].map(status => {
+                  const isActive = student.attendance === status;
+                  return `
+                    <button onclick="updateAttendance('${student.id}', '${status}')" 
+                      class="px-2.5 py-1 rounded-md font-medium transition ${isActive ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-500 hover:text-slate-800'}">
+                      ${status.substring(0, 5)}
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+
+            <div class="space-y-1 ${isAbsent ? 'opacity-40 pointer-events-none' : ''}">
+              <div class="flex items-center justify-between text-[11px] text-slate-400 font-semibold">
+                <span>0</span>
+                <span>KKM (75)</span>
+                <span>100</span>
+              </div>
+              <div class="relative flex items-center">
+                <div class="absolute left-[75%] top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-emerald-400/80 z-0 pointer-events-none rounded-sm"></div>
+                <input type="range" min="0" max="100" value="${student.score}" 
+                       oninput="updateScoreLive('${student.id}', this.value)"
+                       onchange="updateScoreSave('${student.id}', this.value)"
+                       class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-600 focus:outline-none z-10">
+              </div>
+            </div>
+
+            <div class="flex items-center">
+              <div class="relative w-full">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
+                  <i data-lucide="pencil-line" class="w-3 h-3"></i>
+                </span>
+                <input type="text" placeholder="Tambahkan catatan khusus..." 
+                       value="${student.note || ''}"
+                       onchange="updateNote('${student.id}', this.value)"
+                       class="w-full pl-7 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-100 hover:border-slate-200 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg">
+              </div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      
+      lucide.createIcons();
+    }
+
+    // --- PHOTO PREVIEW MODAL HANDLERS ---
+    function openPhotoModal(photoUrl, studentName, studentClass, studentId) {
+      const modal = document.getElementById("photo-modal");
+      const modalImg = document.getElementById("modal-student-photo");
+      const modalName = document.getElementById("modal-student-name");
+      const modalClass = document.getElementById("modal-student-class");
+
+      currentPhotoTargetStudentId = studentId;
+
+      modalImg.src = photoUrl;
+      modalImg.onerror = function() {
+        this.src = `https://placehold.co/300x300/cbd5e1/475569?text=${getInitials(studentName)}`;
+      };
+      modalName.innerText = studentName;
+      modalClass.innerText = studentClass;
+
+      modal.classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+    function closePhotoModal() {
+      const modal = document.getElementById("photo-modal");
+      modal.classList.add("hidden");
+      currentPhotoTargetStudentId = null;
+    }
+
+    // =========================================================================
+    //  NATIVE DEVICE CAMERA CAPTURE ENGINE
+    // =========================================================================
+
+    async function openCameraCapture(studentId) {
+      currentPhotoTargetStudentId = studentId;
+      const cameraModal = document.getElementById("camera-modal");
+      const video = document.getElementById("camera-stream");
+      const preview = document.getElementById("camera-preview");
+
+      // Reset camera view states
+      preview.classList.add("hidden");
+      video.classList.remove("hidden");
+      document.getElementById("camera-stream-controls").classList.remove("hidden");
+      document.getElementById("camera-preview-controls").classList.add("hidden");
+      document.getElementById("camera-upload-loading").classList.add("hidden");
+
+      cameraModal.classList.remove("hidden");
+
+      try {
+        const constraints = {
+          video: {
+            facingMode: activeFacingMode,
+            width: { ideal: 480 },
+            height: { ideal: 480 }
+          }
+        };
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = cameraStream;
+      } catch (err) {
+        showToast("Gagal mengakses kamera. Mohon berikan izin kamera!", "camera-off", "bg-rose-600");
+        closeCamera();
+      }
+    }
+
+    async function switchCameraFacing() {
+      activeFacingMode = (activeFacingMode === "user") ? "environment" : "user";
+      
+      // Mirror style toggler (usually we only mirror front camera)
+      const video = document.getElementById("camera-stream");
+      if (activeFacingMode === "user") {
+        video.classList.add("scale-x-[-1]");
+      } else {
+        video.classList.remove("scale-x-[-1]");
+      }
+
+      // Restart Stream
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+      if (currentPhotoTargetStudentId) {
+        openCameraCapture(currentPhotoTargetStudentId);
+      }
+    }
+
+    function captureSnapshot() {
+      const video = document.getElementById("camera-stream");
+      const canvas = document.getElementById("camera-canvas");
+      const preview = document.getElementById("camera-preview");
+      const ctx = canvas.getContext("2d");
+
+      if (!video.srcObject) return;
+
+      // Draw mirrored if facing user
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (activeFacingMode === "user") {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Restore
+      } else {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      }
+
+      // Convert to image source
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      preview.src = dataUrl;
+
+      // Toggle views
+      video.classList.add("hidden");
+      preview.classList.remove("hidden");
+
+      document.getElementById("camera-stream-controls").classList.add("hidden");
+      document.getElementById("camera-preview-controls").classList.remove("hidden");
+    }
+
+    function retakeSnapshot() {
+      const video = document.getElementById("camera-stream");
+      const preview = document.getElementById("camera-preview");
+
+      preview.classList.add("hidden");
+      video.classList.remove("hidden");
+
+      document.getElementById("camera-stream-controls").classList.remove("hidden");
+      document.getElementById("camera-preview-controls").classList.add("hidden");
+    }
+
+    async function uploadCapturedPhoto() {
+      const canvas = document.getElementById("camera-canvas");
+      const base64Data = canvas.toDataURL("image/jpeg", 0.85);
+      const studentId = currentPhotoTargetStudentId;
+      const targetStudent = appData.students.find(s => s.id === studentId);
+
+      if (!targetStudent) {
+        showToast("Error: Siswa tidak ditemukan!", "alert-circle", "bg-rose-500");
+        return;
+      }
+
+      if (!CONFIG_WEBHOOK_URL) {
+        showToast("Webhook URL Google Sheets belum diatur di dalam kode!", "alert-triangle", "bg-rose-500");
+        return;
+      }
+
+      // Show spinner overlay
+      document.getElementById("camera-upload-loading").classList.remove("hidden");
+
+      const payload = {
+        action: "uploadPhoto",
+        studentId: studentId,
+        studentName: targetStudent.name,
+        base64Data: base64Data
+      };
+
+      try {
+        // Must perform proper CORS POST request to receive direct file URL back from Drive
+        const response = await fetch(CONFIG_WEBHOOK_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8" // Bypass standard preflights elegantly on AppScript
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result && result.status === "success" && result.photoUrl) {
+          // Update photo inside local state
+          const index = appData.students.findIndex(s => s.id === studentId);
+          if (index !== -1) {
+            appData.students[index].photo = result.photoUrl;
+            saveDataToStorage();
+          }
+
+          showToast("Berhasil mengambil & mengunggah foto ke Google Drive!", "check-circle", "bg-emerald-600");
+          loadStudentsOfClass(); // refresh lists view
+          closeCamera();
+        } else {
+          showToast(result.message || "Gagal mengunggah foto.", "alert-circle", "bg-rose-600");
+          document.getElementById("camera-upload-loading").classList.add("hidden");
+        }
+      } catch (error) {
+        showToast("Error saat mengunggah. Periksa kembali Webhook Apps Script Anda!", "x-circle", "bg-rose-600");
+        document.getElementById("camera-upload-loading").classList.add("hidden");
+      }
+    }
+
+    function closeCamera() {
+      const cameraModal = document.getElementById("camera-modal");
+      cameraModal.classList.add("hidden");
+
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      currentPhotoTargetStudentId = null;
+    }
+
+    // --- DATA MUTATION HANDLERS ---
+    function updateScoreLive(studentId, scoreVal) {
+      const val = parseInt(scoreVal);
+      const badge = document.getElementById(`score-badge-${studentId}`);
+      if (badge) {
+        badge.innerText = val;
+        badge.className = "inline-block text-sm font-extrabold px-3 py-1.5 rounded-xl transition-colors min-w-[3rem] text-center " + 
+          (val >= 75 ? "bg-emerald-100 text-emerald-700" : (val >= 70 ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"));
+      }
+    }
+
+    function updateScoreSave(studentId, scoreVal) {
+      const val = parseInt(scoreVal);
+      const index = appData.students.findIndex(s => s.id === studentId);
+      if (index !== -1) {
+        appData.students[index].score = val;
+        saveDataToStorage();
+        updateClassStats();
+      }
+    }
+
+    function updateAttendance(studentId, status) {
+      const index = appData.students.findIndex(s => s.id === studentId);
+      if (index !== -1) {
+        appData.students[index].attendance = status;
+        saveDataToStorage();
+        loadStudentsOfClass(); 
+      }
+    }
+
+    function updateNote(studentId, text) {
+      const index = appData.students.findIndex(s => s.id === studentId);
+      if (index !== -1) {
+        appData.students[index].note = text;
+        saveDataToStorage();
+      }
+    }
+
+    // --- STATISTICAL ENGINE ---
+    function updateClassStats() {
+      if (activeStudentsList.length === 0) {
+        document.getElementById("stat-avg").innerText = "-";
+        document.getElementById("stat-max").innerText = "-";
+        document.getElementById("stat-min").innerText = "-";
+        document.getElementById("stat-pass").innerText = "-";
+        return;
+      }
+
+      const activeAssessments = activeStudentsList.filter(s => s.attendance === "Hadir");
+
+      if (activeAssessments.length === 0) {
+        document.getElementById("stat-avg").innerText = "-";
+        document.getElementById("stat-max").innerText = "-";
+        document.getElementById("stat-min").innerText = "-";
+        document.getElementById("stat-pass").innerText = "0%";
+        return;
+      }
+
+      const scores = activeAssessments.map(s => s.score);
+      const total = scores.reduce((acc, c) => acc + c, 0);
+      const avg = Math.round(total / scores.length);
+      const max = Math.max(...scores);
+      const min = Math.min(...scores);
+
+      const passCount = scores.filter(s => s >= 75).length;
+      const passRate = Math.round((passCount / scores.length) * 100);
+
+      document.getElementById("stat-avg").innerText = avg;
+      document.getElementById("stat-max").innerText = max;
+      document.getElementById("stat-min").innerText = min;
+      document.getElementById("stat-pass").innerText = `${passRate}%`;
+    }
+
+    function setAllScoresToCustom() {
+      const inputVal = document.getElementById("quick-score-input").value;
+      const targetScore = parseInt(inputVal);
+
+      if (isNaN(targetScore) || targetScore < 0 || targetScore > 100) {
+        showToast("Masukkan nilai valid antara 0 - 100!", "alert-triangle", "bg-rose-500");
+        return;
+      }
+
+      if (activeStudentsList.length === 0) {
+        showToast("Tidak ada siswa untuk dinilai!", "alert-circle", "bg-rose-500");
+        return;
+      }
+
+      activeStudentsList.forEach(student => {
+        if (student.attendance === "Hadir") {
+          student.score = targetScore;
+          const globalIdx = appData.students.findIndex(s => s.id === student.id);
+          if (globalIdx !== -1) appData.students[globalIdx].score = targetScore;
+        }
+      });
+
+      saveDataToStorage();
+      renderStudentList();
+      updateClassStats();
+      showToast(`Seluruh siswa aktif disetel ke nilai ${targetScore}`, "zap", "bg-amber-500");
+    }
+
+    function filterStudents() {
+      const q = document.getElementById("search-student").value.toLowerCase();
+      if (!q) {
+        renderStudentList(activeStudentsList);
+        return;
+      }
+
+      const filtered = activeStudentsList.filter(student => 
+        student.name.toLowerCase().includes(q)
+      );
+
+      renderStudentList(filtered);
+    }
+
+    // --- CONFIGURATIONS AND MODALS ---
+    function toggleAddStudentModal() {
+      const modal = document.getElementById("student-modal");
+      modal.classList.toggle("hidden");
+      
+      if (!modal.classList.contains("hidden")) {
+        document.getElementById("new-student-name").value = "";
+        document.getElementById("new-student-class").value = selectedClass || "";
+        document.getElementById("new-student-photo").value = "";
+      }
+    }
+
+    function saveNewStudent() {
+      const name = document.getElementById("new-student-name").value.trim();
+      let className = document.getElementById("new-student-class").value.trim();
+      const photo = document.getElementById("new-student-photo").value.trim();
+
+      if (!name || !className) {
+        showToast("Nama dan Kelas wajib diisi!", "alert-triangle", "bg-rose-500");
+        return;
+      }
+
+      const newId = "s_" + Date.now();
+      const newStudent = {
+        id: newId,
+        name: name,
+        class: className,
+        photo: photo, 
+        score: 75, 
+        attendance: "Hadir",
+        note: ""
+      };
+
+      appData.students.push(newStudent);
+
+      if (!appData.classes.includes(className)) {
+        appData.classes.push(className);
+      }
+
+      saveDataToStorage();
+      populateClassDropdown();
+
+      document.getElementById("class-select").value = className;
+      loadStudentsOfClass();
+
+      toggleAddStudentModal();
+      showToast(`${name} ditambahkan ke ${className}!`, "user-check", "bg-emerald-500");
+    }
+
+    function toggleConfigModal() {
+      const modal = document.getElementById("config-modal");
+      modal.classList.toggle("hidden");
+    }
+
+    function copyAppsScriptCode() {
+      const tempElement = document.createElement("textarea");
+      tempElement.value = rawAppsScript;
+      document.body.appendChild(tempElement);
+      tempElement.select();
+      
+      try {
+        const successful = document.execCommand('copy');
+        const btnText = document.getElementById("copy-btn-text");
+        if (successful) {
+          btnText.innerText = "Disalin!";
+          setTimeout(() => { btnText.innerText = "Salin Kode Apps Script"; }, 2000);
+          showToast("Kode Apps Script berhasil disalin ke clipboard!", "copy", "bg-emerald-500");
+        } else {
+          showToast("Gagal menyalin otomatis.", "alert-triangle", "bg-rose-500");
+        }
+      } catch (err) {
+        showToast("Error saat menyalin.", "alert-triangle", "bg-rose-500");
+      }
+      
+      document.body.removeChild(tempElement);
+    }
+
+    // --- PAYLOAD DELIVERIES ---
+    function sendToWhatsApp() {
+      const dateVal = document.getElementById("assessment-date").value;
+      const titleVal = document.getElementById("assessment-title").value || "Penilaian Harian Kelas";
+      
+      if (activeStudentsList.length === 0) {
+        showToast("Tidak ada data siswa untuk dibagikan!", "alert-circle", "bg-rose-500");
+        return;
+      }
+
+      let text = `📝 *REKAP PENILAIAN SISWA*\n`;
+      text += `📅 *Tanggal:* ${dateVal}\n`;
+      text += `🏫 *Kelas:* ${selectedClass}\n`;
+      text += `📌 *Materi:* ${titleVal}\n`;
+      text += `-------------------------------------------\n\n`;
+
+      let tuntasCount = 0;
+      let hadirCount = 0;
+
+      activeStudentsList.forEach((s, idx) => {
+        const no = idx + 1;
+        if (s.attendance === "Hadir") {
+          hadirCount++;
+          const tuntasStatus = s.score >= 75 ? "✅" : "⚠️";
+          if (s.score >= 75) tuntasCount++;
+          text += `${no}. ${s.name} : *${s.score}* ${tuntasStatus} ${s.note ? ' _(' + s.note + ')_' : ''}\n`;
+        } else {
+          text += `${no}. ${s.name} : *${s.attendance}* (Absen) ${s.note ? ' _(' + s.note + ')_' : ''}\n`;
+        }
+      });
+
+      const totalHadir = activeStudentsList.filter(s => s.attendance === "Hadir");
+      let average = 0;
+      if (totalHadir.length > 0) {
+        average = Math.round(totalHadir.reduce((acc, curr) => acc + curr.score, 0) / totalHadir.length);
+      }
+
+      text += `\n-------------------------------------------\n`;
+      text += `📊 *Ringkasan Hasil Kelas:*\n`;
+      text += `• Rata-rata Nilai: *${average}*\n`;
+      text += `• Total Siswa Dinilai: ${hadirCount}/${activeStudentsList.length}\n`;
+      text += `• Ketuntasan Belajar: *${tuntasCount} dari ${hadirCount} Siswa* (${hadirCount > 0 ? Math.round((tuntasCount/hadirCount)*100) : 0}%)\n\n`;
+      text += `_Dikirim melalui Aplikasi Penilaian Guru Digital._`;
+
+      const encryptedText = encodeURIComponent(text);
+      const waUrl = `https://api.whatsapp.com/send?text=${encryptedText}`;
+      
+      window.open(waUrl, "_blank");
+    }
+
+    async function sendToSpreadsheet() {
+      const url = CONFIG_WEBHOOK_URL;
+      const dateVal = document.getElementById("assessment-date").value;
+      const titleVal = document.getElementById("assessment-title").value || "Penilaian Harian Kelas";
+
+      if (!url || url.trim() === "") {
+        showToast("Webhook URL belum diatur di dalam kode HTML Anda!", "alert-circle", "bg-rose-500");
+        toggleConfigModal();
+        return;
+      }
+
+      if (activeStudentsList.length === 0) {
+        showToast("Tidak ada data siswa untuk dikirim!", "alert-circle", "bg-rose-500");
+        return;
+      }
+
+      showToast("Sedang merekap ke Spreadsheet...", "cloud", "bg-indigo-500");
+
+      const payload = {
+        date: dateVal,
+        class: selectedClass,
+        title: titleVal,
+        records: activeStudentsList.map(s => ({
+          name: s.name,
+          attendance: s.attendance,
+          score: s.attendance === 'Hadir' ? s.score : 0,
+          note: s.note || ""
+        }))
+      };
+
+      let retries = 5;
+      let delay = 1000;
+      let success = false;
+
+      while (retries > 0 && !success) {
+        try {
+          const response = await fetch(url, {
+            method: "POST",
+            mode: "no-cors", 
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          });
+          
+          success = true;
+          showToast(`Berhasil! Rekap masuk ke Sheet "${selectedClass}"`, "check-circle", "bg-emerald-500");
+        } catch (error) {
+          retries--;
+          if (retries === 0) {
+            showToast("Gagal mengirim data. Periksa kembali Webhook Apps Script Anda.", "x-circle", "bg-rose-600");
+          } else {
+            await new Promise(resolve => setTimeout(resolve, delay));
+            delay *= 2; 
+          }
+        }
+      }
+    }
+
+    // --- TOAST NOTIFICATIONS ---
+    function showToast(message, iconName, bgClass = "bg-slate-900") {
+      const toast = document.getElementById("toast");
+      const text = document.getElementById("toast-message");
+      const iconContainer = document.getElementById("toast-icon-container");
+
+      text.innerText = message;
+      iconContainer.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4 text-slate-950"></i>`;
+      lucide.createIcons();
+
+      toast.className = `fixed bottom-24 left-1/2 -translate-x-1/2 text-white px-4 py-3 rounded-2xl shadow-xl z-50 flex items-center space-x-2 transition-all duration-300 transform scale-100 opacity-100 ${bgClass}`;
+
+      setTimeout(() => {
+        toast.className = "fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl z-50 flex items-center space-x-2 transition-all duration-300 opacity-0 pointer-events-none scale-90";
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
