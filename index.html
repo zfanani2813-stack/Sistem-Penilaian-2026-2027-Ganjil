@@ -372,7 +372,7 @@
     const CONFIG_SCHOOL_LOGO_URL = "https://drive.google.com/file/d/1UYTf4CkaT4c-VWmoP31iNOGGTccgQorJ/view?usp=sharing"; 
     
     // 2. URL Webhook Google Apps Script Anda (Hasil Deploy/Penerapan di Spreadsheet)
-    const CONFIG_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxqqxoexIpn6oVGynlPBtSNZsAZ1Wg6aH2RpB2LxKSPkUiIJdqSJV9DZWDd_K5I-7q1/exec"; 
+    const CONFIG_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbywvEFdbuYls_hixB3B_xuEYa8uD7aFA932vQkbZxp2UNak762iQstpbIpQ9aJIB_LQ/exec"; 
     
     // =========================================================================
 
@@ -470,149 +470,15 @@
     let activeFacingMode = "user"; // 'user' (front) or 'environment' (back)
     let currentPhotoTargetStudentId = null;
 
-    // --- REKAP GOOGLE APPS SCRIPT CODE (UPGRADED FOR PHOTOS & HORIZONTAL REKAP) ---
-    const rawAppsScript = `function doPost(e) {
-  try {
-    var params = JSON.parse(e.postData.contents);
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    
-    // --- AKSI 1: UNGHAH FOTO LANGSUNG KE GOOGLE DRIVE ---
-    if (params.action === "uploadPhoto") {
-      var base64Data = params.base64Data;
-      var studentName = params.studentName || "Siswa";
-      var studentId = params.studentId || "unknown";
-      
-      // Decode image bytes
-      var contentType = base64Data.substring(5, base64Data.indexOf(';'));
-      var bytes = Utilities.base64Decode(base64Data.split(',')[1]);
-      var blob = Utilities.newBlob(bytes, contentType, studentName.replace(/\\s+/g, "_") + "_" + studentId + ".jpg");
-      
-      // Get or Create Folder
-      var folderName = "Foto Siswa Penilaian";
-      var folders = DriveApp.getFoldersByName(folderName);
-      var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
-      
-      // Save file and set public visibility
-      var file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      
-      var directUrl = "https://lh3.googleusercontent.com/d/" + file.getId();
-      
-      return ContentService.createTextOutput(JSON.stringify({ 
-        "status": "success", 
-        "message": "Foto berhasil diunggah ke Google Drive!",
-        "photoUrl": directUrl
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // --- AKSI 2: REKAP NILAI HARIAN KE SPREADSHEET (KE SAMPING) ---
-    var className = params.class || "Umum";
-    var sheet = ss.getSheetByName(className);
-    if (!sheet) {
-      sheet = ss.insertSheet(className);
-      sheet.appendRow(["No", "Nama Siswa"]);
-      sheet.getRange("A1:B1").setFontWeight("bold").setBackground("#e2e8f0").setHorizontalAlignment("center");
-      sheet.setFrozenColumns(2);
-    }
-    
-    var dateVal = params.date || new Date().toISOString().split('T')[0];
-    var titleVal = params.title || "Penilaian";
-    var headerText = dateVal + " - " + titleVal;
-    
-    var dataSiswa = params.records || [];
-    
-    // Get existing students row index mapping
-    var lastRow = sheet.getLastRow();
-    var existingStudents = [];
-    if (lastRow > 1) {
-      existingStudents = sheet.getRange(2, 2, lastRow - 1, 1).getValues().map(function(row) {
-        return row[0].toString().trim().toLowerCase();
-      });
-    }
-    
-    // Check and append missing students
-    var updatedLastRow = lastRow;
-    for (var i = 0; i < dataSiswa.length; i++) {
-      var sName = dataSiswa[i].name.trim();
-      var sNameLower = sName.toLowerCase();
-      var sIndex = existingStudents.indexOf(sNameLower);
-      
-      if (sIndex === -1) {
-        updatedLastRow++;
-        sheet.appendRow([updatedLastRow - 1, sName]);
-        existingStudents.push(sNameLower);
-      }
-    }
-    
-    // Reload mapped student rows
-    lastRow = sheet.getLastRow();
-    var studentNamesInSheet = sheet.getRange(2, 2, lastRow - 1, 1).getValues().map(function(row) {
-      return row[0].toString().trim().toLowerCase();
-    });
-    
-    // Find or create column
-    var lastCol = sheet.getLastColumn();
-    var targetCol = lastCol + 1;
-    var headers = [];
-    if (lastCol > 2) {
-      headers = sheet.getRange(1, 3, 1, lastCol - 2).getValues()[0];
-    }
-    
-    var headerIndex = headers.indexOf(headerText);
-    if (headerIndex !== -1) {
-      targetCol = headerIndex + 3;
-    } else {
-      sheet.getRange(1, targetCol).setValue(headerText)
-                .setFontWeight("bold")
-                .setBackground("#d1fae5")
-                .setHorizontalAlignment("center");
-    }
-    
-    // Write scores and notes as cells notes
-    for (var j = 0; j < dataSiswa.length; j++) {
-      var sObj = dataSiswa[j];
-      var sNameLower = sObj.name.trim().toLowerCase();
-      var rowIndexInSheet = studentNamesInSheet.indexOf(sNameLower) + 2;
-      
-      if (rowIndexInSheet > 1) {
-        var cell = sheet.getRange(rowIndexInSheet, targetCol);
-        if (sObj.attendance === "Hadir") {
-          cell.setValue(sObj.score);
-        } else {
-          cell.setValue(sObj.attendance);
-        }
-        
-        if (sObj.note && sObj.note.trim() !== "") {
-          cell.setNote("Catatan: " + sObj.note);
-        } else {
-          cell.clearNote();
-        }
-      }
-    }
-    
-    sheet.autoResizeColumn(targetCol);
-    sheet.autoResizeColumn(1);
-    sheet.autoResizeColumn(2);
-    
-    return ContentService.createTextOutput(JSON.stringify({ "status": "success", "message": "Berhasil direkap ke samping!" }))
-                         .setMimeType(ContentService.MimeType.JSON);
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ "status": "error", "message": error.toString() }))
-                         .setMimeType(ContentService.MimeType.JSON);
-  }
-}`;
-
     // --- AUTO CONVERT GOOGLE DRIVE SHARE LINK TO DIRECT IMAGE URL ---
     function convertGDriveLink(url) {
       if (!url) return "";
       const driveUrl = url.trim();
       if (driveUrl.includes("drive.google.com")) {
-        // Match /file/d/FILE_ID/
         let match = driveUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
         if (match && match[1]) {
           return `https://lh3.googleusercontent.com/d/${match[1]}`;
         }
-        // Match ?id=FILE_ID or &id=FILE_ID
         match = driveUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
         if (match && match[1]) {
           return `https://lh3.googleusercontent.com/d/${match[1]}`;
@@ -693,8 +559,13 @@
       const select = document.getElementById("class-select");
       select.innerHTML = "";
       
-      const uniqueClasses = [...new Set(appData.students.map(s => s.class)), ...appData.classes];
-      appData.classes = uniqueClasses.filter(Boolean);
+      const rawCombinedClasses = [
+        ...appData.students.map(s => s.class),
+        ...appData.classes
+      ];
+      
+      const uniqueClasses = [...new Set(rawCombinedClasses)].filter(Boolean);
+      appData.classes = uniqueClasses;
 
       appData.classes.forEach(c => {
         const opt = document.createElement("option");
@@ -758,7 +629,6 @@
             <div class="flex items-center space-x-3">
               <span class="text-xs font-extrabold text-white bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 w-6 h-6 rounded-full flex items-center justify-center shadow-sm shadow-emerald-200">${ordinalNum}</span>
               
-              <!-- Clickable Student Avatar with Hover Visual Indicators -->
               <div onclick="openPhotoModal('${actualPhotoUrl}', '${student.name.replace(/'/g, "\\'")}', '${student.class}', '${student.id}')" 
                    class="relative w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all" 
                    title="Klik untuk memperbesar atau mengganti foto">
@@ -840,7 +710,6 @@
       const modalClass = document.getElementById("modal-student-class");
 
       currentPhotoTargetStudentId = studentId;
-
       modalImg.src = photoUrl;
       modalImg.onerror = function() {
         this.src = `https://placehold.co/300x300/cbd5e1/475569?text=${getInitials(studentName)}`;
@@ -868,7 +737,6 @@
       const video = document.getElementById("camera-stream");
       const preview = document.getElementById("camera-preview");
 
-      // Reset camera view states
       preview.classList.add("hidden");
       video.classList.remove("hidden");
       document.getElementById("camera-stream-controls").classList.remove("hidden");
@@ -896,7 +764,6 @@
     async function switchCameraFacing() {
       activeFacingMode = (activeFacingMode === "user") ? "environment" : "user";
       
-      // Mirror style toggler (usually we only mirror front camera)
       const video = document.getElementById("camera-stream");
       if (activeFacingMode === "user") {
         video.classList.add("scale-x-[-1]");
@@ -904,7 +771,6 @@
         video.classList.remove("scale-x-[-1]");
       }
 
-      // Restart Stream
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
       }
@@ -921,22 +787,19 @@
 
       if (!video.srcObject) return;
 
-      // Draw mirrored if facing user
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (activeFacingMode === "user") {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.setTransform(1, 0, 0, 1, 0, 0); // Restore
+        ctx.setTransform(1, 0, 0, 1, 0, 0); 
       } else {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       }
 
-      // Convert to image source
       const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
       preview.src = dataUrl;
 
-      // Toggle views
       video.classList.add("hidden");
       preview.classList.remove("hidden");
 
@@ -959,10 +822,10 @@
       const canvas = document.getElementById("camera-canvas");
       const base64Data = canvas.toDataURL("image/jpeg", 0.85);
       const studentId = currentPhotoTargetStudentId;
-      const targetStudent = appData.students.find(s => s.id === studentId);
+      const targetStudent = appData.students.find(s => String(s.id) === String(studentId));
 
       if (!targetStudent) {
-        showToast("Error: Siswa tidak ditemukan!", "alert-circle", "bg-rose-500");
+        showToast("Error: Data identitas siswa tidak valid!", "alert-circle", "bg-rose-500");
         return;
       }
 
@@ -971,22 +834,21 @@
         return;
       }
 
-      // Show spinner overlay
       document.getElementById("camera-upload-loading").classList.remove("hidden");
 
+      // Payload dipastikan dikirim dengan tipe data string murni
       const payload = {
         action: "uploadPhoto",
-        studentId: studentId,
-        studentName: targetStudent.name,
-        base64Data: base64Data
+        studentId: String(studentId),
+        studentName: String(targetStudent.name),
+        base64Data: String(base64Data)
       };
 
       try {
-        // Must perform proper CORS POST request to receive direct file URL back from Drive
         const response = await fetch(CONFIG_WEBHOOK_URL, {
           method: "POST",
           headers: {
-            "Content-Type": "text/plain;charset=utf-8" // Bypass standard preflights elegantly on AppScript
+            "Content-Type": "text/plain;charset=utf-8" 
           },
           body: JSON.stringify(payload)
         });
@@ -994,22 +856,21 @@
         const result = await response.json();
 
         if (result && result.status === "success" && result.photoUrl) {
-          // Update photo inside local state
-          const index = appData.students.findIndex(s => s.id === studentId);
+          const index = appData.students.findIndex(s => String(s.id) === String(studentId));
           if (index !== -1) {
             appData.students[index].photo = result.photoUrl;
             saveDataToStorage();
           }
 
           showToast("Berhasil mengambil & mengunggah foto ke Google Drive!", "check-circle", "bg-emerald-600");
-          loadStudentsOfClass(); // refresh lists view
+          loadStudentsOfClass(); 
           closeCamera();
         } else {
           showToast(result.message || "Gagal mengunggah foto.", "alert-circle", "bg-rose-600");
           document.getElementById("camera-upload-loading").classList.add("hidden");
         }
       } catch (error) {
-        showToast("Error saat mengunggah. Periksa kembali Webhook Apps Script Anda!", "x-circle", "bg-rose-600");
+        showToast("Gagal menyimpan. Pastikan Apps Script terbaru telah dipublikasi ulang!", "x-circle", "bg-rose-600");
         document.getElementById("camera-upload-loading").classList.add("hidden");
       }
     }
