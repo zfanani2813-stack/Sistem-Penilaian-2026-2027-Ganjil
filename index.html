@@ -103,7 +103,7 @@
 
       <!-- Quick Action: Set Manual Custom Score -->
       <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Aksi Cepat</span>
+        <span class="text-sm font-black text-slate-200 uppercase tracking-wider">Summary</span>
         <div class="flex items-center space-x-1.5">
           <input type="number" id="quick-score-input" value="75" min="0" max="100" class="w-12 text-center bg-slate-800 text-white rounded-lg text-xs py-1 px-1 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-extrabold" title="Masukkan nilai target">
           <button onclick="setAllScoresToCustom()" class="flex items-center space-x-1 bg-amber-500 hover:bg-amber-600 text-slate-950 px-2 py-1 rounded-lg text-[11px] font-extrabold shadow-xs transition active:scale-95">
@@ -116,8 +116,8 @@
       <!-- Real-time Summary Card Stats -->
       <div class="grid grid-cols-4 gap-1.5 text-center">
         <div class="bg-white/5 rounded-xl py-1 px-1.5 border border-white/5">
-          <div class="text-[9px] text-slate-400 uppercase font-medium">Rata2</div>
-          <div id="stat-avg" class="text-sm font-extrabold text-emerald-400">0</div>
+          <div class="text-[9px] text-slate-400 uppercase font-medium">&lt; KKM</div>
+          <div id="stat-below-kkm" class="text-sm font-extrabold text-rose-400">0</div>
         </div>
         <div class="bg-white/5 rounded-xl py-1 px-1.5 border border-white/5">
           <div class="text-[9px] text-slate-400 uppercase font-medium">Tinggi</div>
@@ -492,6 +492,31 @@
       return name ? name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() : "S";
     }
 
+    // --- PHOTO PREVIEW MODAL HANDLERS (Definisikan lebih awal agar selalu tersedia) ---
+    function openPhotoModal(photoUrl, studentName, studentClass, studentId) {
+      const modal = document.getElementById("photo-modal");
+      const modalImg = document.getElementById("modal-student-photo");
+      const modalName = document.getElementById("modal-student-name");
+      const modalClass = document.getElementById("modal-student-class");
+
+      currentPhotoTargetStudentId = studentId;
+      modalImg.src = photoUrl;
+      modalImg.onerror = function() {
+        this.src = `https://placehold.co/300x300/cbd5e1/475569?text=${getInitials(studentName)}`;
+      };
+      modalName.innerText = studentName;
+      modalClass.innerText = studentClass;
+
+      modal.classList.remove("hidden");
+      lucide.createIcons();
+    }
+
+    function closePhotoModal() {
+      const modal = document.getElementById("photo-modal");
+      modal.classList.add("hidden");
+      currentPhotoTargetStudentId = null;
+    }
+
     // --- INITIALIZATION EVENTS ---
     window.addEventListener("DOMContentLoaded", () => {
       loadDataFromStorage();
@@ -646,11 +671,13 @@
         const actualPhotoUrl = processedPhotoUrl || fallbackPhotoUrl;
 
         const card = document.createElement("div");
-        card.className = `bg-white rounded-3xl p-4 shadow-md shadow-slate-200/90 border ${isAbsent ? 'border-amber-300/60 bg-amber-50/30' : 'border-emerald-100/80 hover:border-emerald-300'} transition-all duration-200 hover:shadow-lg hover:shadow-slate-300/80`;
+        // PERUBAHAN: Border dipertebal (border-2), diberi warna biru dongker (border-blue-950) langsung aktif, dan efek neon saat diisi nilainya (focus-within)
+        card.className = `bg-white rounded-3xl p-4 shadow-md border-2 ${isAbsent ? 'border-blue-950/30 bg-slate-50/50' : 'border-blue-950'} transition-all duration-300 hover:shadow-lg focus-within:shadow-[0_0_20px_rgba(59,130,246,0.75)] focus-within:border-blue-500`;
         card.innerHTML = `
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center space-x-3">
-              <span class="text-xs font-extrabold text-white bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 w-6 h-6 rounded-full flex items-center justify-center shadow-sm shadow-emerald-200">${ordinalNum}</span>
+              <!-- Nomor urut diperbesar sedikit, warna kuning cerah, angka hitam tebal mencolok -->
+              <span class="text-sm font-black text-slate-950 bg-yellow-400 w-7 h-7 rounded-full flex items-center justify-center shadow-md shadow-yellow-200/80 border border-yellow-300 shrink-0">${ordinalNum}</span>
               
               <div onclick="openPhotoModal('${actualPhotoUrl}', '${student.name.replace(/'/g, "\\'")}', '${student.class}', '${student.id}')" 
                    class="relative w-10 h-10 rounded-full overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all" 
@@ -668,8 +695,9 @@
               </div>
             </div>
 
+            <!-- Ukuran nilai siswa diperbesar menjadi text-base dengan font-black lebih tebal & mencolok -->
             <div class="text-right">
-              <span id="score-badge-${student.id}" class="inline-block text-sm font-extrabold px-3 py-1.5 rounded-xl ${scoreColor} transition-colors min-w-[3rem] text-center">
+              <span id="score-badge-${student.id}" class="inline-block text-base font-black px-3.5 py-2 rounded-2xl ${scoreColor} transition-colors min-w-[3.5rem] text-center shadow-xs">
                 ${student.score}
               </span>
             </div>
@@ -884,12 +912,13 @@
     }
 
     // --- DATA MUTATION HANDLERS ---
+    // Ukuran badge diubah menjadi text-base, font-black, dan rounded-2xl pada saat slider digeser secara live
     function updateScoreLive(studentId, scoreVal) {
       const val = parseInt(scoreVal);
       const badge = document.getElementById(`score-badge-${studentId}`);
       if (badge) {
         badge.innerText = val;
-        badge.className = "inline-block text-sm font-extrabold px-3 py-1.5 rounded-xl transition-colors min-w-[3rem] text-center " + 
+        badge.className = "inline-block text-base font-black px-3.5 py-2 rounded-2xl transition-colors min-w-[3.5rem] text-center shadow-xs " + 
           (val >= 75 ? "bg-emerald-100 text-emerald-700" : (val >= 70 ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"));
       }
     }
@@ -913,7 +942,6 @@
       }
     }
 
-    // [PENTING] Menyimpan Catatan Siswa
     function updateNote(studentId, text) {
       const index = appData.students.findIndex(s => s.id === studentId);
       if (index !== -1) {
@@ -925,7 +953,7 @@
     // --- STATISTICAL ENGINE ---
     function updateClassStats() {
       if (activeStudentsList.length === 0) {
-        document.getElementById("stat-avg").innerText = "-";
+        document.getElementById("stat-below-kkm").innerText = "-";
         document.getElementById("stat-max").innerText = "-";
         document.getElementById("stat-min").innerText = "-";
         document.getElementById("stat-pass").innerText = "-";
@@ -935,7 +963,7 @@
       const activeAssessments = activeStudentsList.filter(s => s.attendance === "Hadir");
 
       if (activeAssessments.length === 0) {
-        document.getElementById("stat-avg").innerText = "-";
+        document.getElementById("stat-below-kkm").innerText = "-";
         document.getElementById("stat-max").innerText = "-";
         document.getElementById("stat-min").innerText = "-";
         document.getElementById("stat-pass").innerText = "0%";
@@ -943,15 +971,14 @@
       }
 
       const scores = activeAssessments.map(s => s.score);
-      const total = scores.reduce((acc, c) => acc + c, 0);
-      const avg = Math.round(total / scores.length);
       const max = Math.max(...scores);
       const min = Math.min(...scores);
 
       const passCount = scores.filter(s => s >= 75).length;
+      const belowKkmCount = scores.filter(s => s < 75).length;
       const passRate = Math.round((passCount / scores.length) * 100);
 
-      document.getElementById("stat-avg").innerText = avg;
+      document.getElementById("stat-below-kkm").innerText = belowKkmCount;
       document.getElementById("stat-max").innerText = max;
       document.getElementById("stat-min").innerText = min;
       document.getElementById("stat-pass").innerText = `${passRate}%`;
