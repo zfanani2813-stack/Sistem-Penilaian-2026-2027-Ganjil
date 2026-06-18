@@ -50,7 +50,7 @@
     </div>
   </header>
 
-  <!-- MAIN CONTAINER (Centered & constrained like native mobile app) -->
+  <!-- MAIN CONTAINER -->
   <main class="flex-1 max-w-md w-full mx-auto px-4 py-4 space-y-4 pb-32">
     
     <!-- METADATA PANEL (Tanggal, Kelas, Judul Tugas) -->
@@ -94,14 +94,14 @@
       </div>
     </section>
 
-    <!-- STATISTICS & QUICK ACTIONS (SUPER COMPACT REVISION) -->
+    <!-- STATISTICS & QUICK ACTIONS -->
     <section class="bg-slate-900 text-white rounded-2xl py-2.5 px-3.5 shadow-md space-y-2.5 relative overflow-hidden">
       <!-- Background pattern -->
       <div class="absolute right-0 bottom-0 opacity-10 pointer-events-none">
         <i data-lucide="trending-up" class="w-24 h-24 text-white"></i>
       </div>
 
-      <!-- Quick Action: Set Manual Custom Score (Sleek & Space-Efficient) -->
+      <!-- Quick Action: Set Manual Custom Score -->
       <div class="flex items-center justify-between border-b border-slate-800 pb-2">
         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Aksi Cepat</span>
         <div class="flex items-center space-x-1.5">
@@ -113,7 +113,7 @@
         </div>
       </div>
 
-      <!-- Real-time Summary Card Stats (Sleek and tight design) -->
+      <!-- Real-time Summary Card Stats -->
       <div class="grid grid-cols-4 gap-1.5 text-center">
         <div class="bg-white/5 rounded-xl py-1 px-1.5 border border-white/5">
           <div class="text-[9px] text-slate-400 uppercase font-medium">Rata2</div>
@@ -187,7 +187,7 @@
                  class="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
         </div>
 
-        <!-- Class Input (Text or Select) -->
+        <!-- Class Input -->
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">Kelas</label>
           <input type="text" id="new-student-class" placeholder="Contoh: X TESHA, XI TITL" 
@@ -195,7 +195,7 @@
           <p class="text-[10px] text-slate-400 mt-1">Jika menulis nama kelas baru, otomatis akan masuk ke opsi pilihan di halaman utama.</p>
         </div>
 
-        <!-- Photo URL Input (Google Drive / Unsplash / etc) -->
+        <!-- Photo URL Input -->
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">Link Foto (Mendukung Tautan Google Drive)</label>
           <input type="text" id="new-student-photo" placeholder="https://drive.google.com/file/d/..." 
@@ -210,7 +210,7 @@
     </div>
   </div>
 
-  <!-- MODAL: INFO & GOOGLE SHEETS SETUP (CLEANED UP - NO INPUT FIELDS) -->
+  <!-- MODAL: INFO & GOOGLE SHEETS SETUP -->
   <div id="config-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden transition-opacity duration-300">
     <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
       <button onclick="toggleConfigModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
@@ -372,7 +372,7 @@
     const CONFIG_SCHOOL_LOGO_URL = "https://drive.google.com/file/d/1UYTf4CkaT4c-VWmoP31iNOGGTccgQorJ/view?usp=sharing"; 
     
     // 2. URL Webhook Google Apps Script Anda (Hasil Deploy/Penerapan di Spreadsheet)
-    const CONFIG_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbywvEFdbuYls_hixB3B_xuEYa8uD7aFA932vQkbZxp2UNak762iQstpbIpQ9aJIB_LQ/exec"; 
+    const CONFIG_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzqqxoexIpn6oVGynlPBtSNZsAZ1Wg6aH2RpB2LxKSPkUiIJdqSJV9DZWDd_K5I-7q1/exec"; 
     
     // =========================================================================
 
@@ -504,11 +504,12 @@
       lucide.createIcons();
       updateClassStats();
 
-      // Register Camera button trigger inside the Lightbox modal
+      // [FIXED LOGIC] Simpan ID ke variabel sementara (targetId) sebelum closePhotoModal menyetelnya ke null!
       document.getElementById("modal-capture-btn").addEventListener("click", () => {
         if (currentPhotoTargetStudentId) {
-          closePhotoModal();
-          openCameraCapture(currentPhotoTargetStudentId);
+          const targetId = currentPhotoTargetStudentId; 
+          closePhotoModal(); 
+          openCameraCapture(targetId); 
         }
       });
     });
@@ -555,6 +556,17 @@
       }
     }
 
+    // --- HELPER UNTUK MENGHITUNG BERAT URUTAN KELAS (AKADEMIS ROMAWI) ---
+    function getClassWeight(className) {
+      if (!className) return 99;
+      const upper = className.toUpperCase();
+      if (upper.startsWith("XII")) return 3;
+      if (upper.startsWith("XI")) return 2;
+      if (upper.startsWith("X")) return 1;
+      return 99;
+    }
+
+    // --- POPULATE & SORT CLASS OPTIONS ---
     function populateClassDropdown() {
       const select = document.getElementById("class-select");
       select.innerHTML = "";
@@ -564,7 +576,18 @@
         ...appData.classes
       ];
       
-      const uniqueClasses = [...new Set(rawCombinedClasses)].filter(Boolean);
+      let uniqueClasses = [...new Set(rawCombinedClasses)].filter(Boolean);
+      
+      // Mengurutkan kelas berdasarkan tingkatan X, XI, lalu XII secara konsisten
+      uniqueClasses.sort((a, b) => {
+        const weightA = getClassWeight(a);
+        const weightB = getClassWeight(b);
+        if (weightA !== weightB) {
+          return weightA - weightB;
+        }
+        return a.localeCompare(b);
+      });
+
       appData.classes = uniqueClasses;
 
       appData.classes.forEach(c => {
@@ -685,7 +708,7 @@
 
             <div class="flex items-center">
               <div class="relative w-full">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400">
+                <span class="absolute inset-y-0 left-0 flex-1 flex items-center pl-2.5 text-slate-400">
                   <i data-lucide="pencil-line" class="w-3 h-3"></i>
                 </span>
                 <input type="text" placeholder="Tambahkan catatan khusus..." 
@@ -700,31 +723,6 @@
       });
       
       lucide.createIcons();
-    }
-
-    // --- PHOTO PREVIEW MODAL HANDLERS ---
-    function openPhotoModal(photoUrl, studentName, studentClass, studentId) {
-      const modal = document.getElementById("photo-modal");
-      const modalImg = document.getElementById("modal-student-photo");
-      const modalName = document.getElementById("modal-student-name");
-      const modalClass = document.getElementById("modal-student-class");
-
-      currentPhotoTargetStudentId = studentId;
-      modalImg.src = photoUrl;
-      modalImg.onerror = function() {
-        this.src = `https://placehold.co/300x300/cbd5e1/475569?text=${getInitials(studentName)}`;
-      };
-      modalName.innerText = studentName;
-      modalClass.innerText = studentClass;
-
-      modal.classList.remove("hidden");
-      lucide.createIcons();
-    }
-
-    function closePhotoModal() {
-      const modal = document.getElementById("photo-modal");
-      modal.classList.add("hidden");
-      currentPhotoTargetStudentId = null;
     }
 
     // =========================================================================
@@ -836,7 +834,6 @@
 
       document.getElementById("camera-upload-loading").classList.remove("hidden");
 
-      // Payload dipastikan dikirim dengan tipe data string murni
       const payload = {
         action: "uploadPhoto",
         studentId: String(studentId),
@@ -916,6 +913,7 @@
       }
     }
 
+    // [PENTING] Menyimpan Catatan Siswa
     function updateNote(studentId, text) {
       const index = appData.students.findIndex(s => s.id === studentId);
       if (index !== -1) {
