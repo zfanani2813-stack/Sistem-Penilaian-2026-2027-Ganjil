@@ -372,7 +372,7 @@
     const CONFIG_SCHOOL_LOGO_URL = "https://drive.google.com/file/d/1UYTf4CkaT4c-VWmoP31iNOGGTccgQorJ/view?usp=sharing"; 
     
     // 2. URL Webhook Google Apps Script Anda (Hasil Deploy/Penerapan di Spreadsheet)
-    const CONFIG_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxaMZk64VuzEBCVjCBeT9uhMF7hJ6uJfkvdbhVDan4o6rDrnhbVo7vuzHwY53C3VCgR/exec"; 
+    const CONFIG_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwCRcIwFED1AZh7Xkkr_YEf6F7R5YLULX7GRtmeFQHKRSNf0tiD-rRzHaiZ7k7hY7rs/exec"; 
     
     // =========================================================================
 
@@ -1183,27 +1183,35 @@
         }))
       };
 
-      let retries = 5;
+      let retries = 3;
       let delay = 1000;
       let success = false;
 
       while (retries > 0 && !success) {
         try {
+          // PERBAIKAN STABILITAS: Menggunakan tipe data text/plain standar (tanpa 'no-cors' yang membuat payload menjadi opaque)
+          // Ini memungkinkan fetch mengikuti instruksi pengalihan (redirect 302) dari server Google secara sempurna.
           const response = await fetch(url, {
             method: "POST",
-            mode: "no-cors", 
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "text/plain;charset=utf-8"
             },
             body: JSON.stringify(payload)
           });
           
-          success = true;
-          showToast(`Berhasil! Rekap masuk ke Sheet "${selectedClass}"`, "check-circle", "bg-emerald-500");
+          const result = await response.json();
+          
+          if (result && result.status === "success") {
+            success = true;
+            showToast(`Berhasil! Rekap masuk ke Sheet "${selectedClass}"`, "check-circle", "bg-emerald-500");
+          } else {
+            showToast(result.message || "Gagal merekap data.", "alert-circle", "bg-rose-600");
+            break; 
+          }
         } catch (error) {
           retries--;
           if (retries === 0) {
-            showToast("Gagal mengirim data. Periksa kembali Webhook Apps Script Anda.", "x-circle", "bg-rose-600");
+            showToast("Gagal mengirim data. Pastikan Webhook Apps Script Anda berstatus 'Anyone'.", "x-circle", "bg-rose-600");
           } else {
             await new Promise(resolve => setTimeout(resolve, delay));
             delay *= 2; 
